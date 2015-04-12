@@ -11,7 +11,9 @@ add the following to your `project.clj`
 :sass {:source "sass" :target "css"}
 ```
 
-then run `lein sass` to compile the assets.
+run `lein sass` to compile the assets
+
+run `lein sass watch` to watch for changes and recompile files as necessary 
 
 
 ## License
