@@ -4,10 +4,14 @@ A Clojure library designed to compile SASS files using [Sass.js](https://github.
 
 ## Usage
 
+add the following to your `project.clj`
+
 ```clojure
-(use 'lein-sass.core)
-(compile-css "test/test.sass")
+:plugins [[lein-sass "0.1.0"]]
+:sass {:source "sass" :target "css"}
 ```
+
+then run `lein sass` to compile the assets.
 
 
 ## License
