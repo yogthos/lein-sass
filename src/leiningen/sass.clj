@@ -1,6 +1,7 @@
 (ns leiningen.sass
   (:require [clojure.set :refer [rename-keys]]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.pprint])
   (:import
     java.io.File
     [java.nio.file FileSystems Paths StandardWatchEventKinds]
