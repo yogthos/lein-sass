@@ -1,4 +1,4 @@
-(defproject lein-sass "0.1.0"
+(defproject lein-sass "0.1.1"
   :description "SASS asset compiler using Sass.js and Nashorn"
   :url "https://github.com/yogthos/lein-sass"
   :license {:name "Eclipse Public License"
