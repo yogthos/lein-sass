@@ -5,6 +5,8 @@ A minimum dependency Clojure library designed to compile SASS files using [Sass.
 ## Installing
 
 
+[![Clojars Project](https://img.shields.io/clojars/v/yogthos/lein-sass.svg)](https://clojars.org/yogthos/lein-sass)
+
 
 ## Usage
 
