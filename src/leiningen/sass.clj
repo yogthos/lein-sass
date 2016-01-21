@@ -8,10 +8,11 @@
     [javax.script Invocable ScriptEngineManager]))
 
 (def compiled? (atom false))
-(def engine (.getEngineByName (ScriptEngineManager.) "nashorn"))
-(.eval engine (io/reader (io/resource "sass.min.js")))
-(.eval engine "var source = '';")
-(.eval engine "function setSource(input) {source = input;};")
+(defonce engine (let [e (.getEngineByName (ScriptEngineManager.) "nashorn")]
+                  (.eval e (io/reader (io/resource "sass.min.js")))
+                  (.eval e "var source = '';")
+                  (.eval e "function setSource(input) {source = input;};")
+                  e))
 
 (defn register-events! [dir watch-service]
   (.register dir
@@ -26,9 +27,10 @@
 (defn watch-loop [watch-service handler]
   (while true
     (when-let [k (.take watch-service)]
-      (doseq [event (.pollEvents k)]
-        (handler event))
-      (.reset k))))
+      (when-let [events (not-empty (.pollEvents k))]
+        (handler (first events))
+        (.pollEvents k)
+        (.reset k)))))
 
 (defn watch [path handler]
   (let [dir (-> path (io/file) (.toURI) (Paths/get))]
@@ -61,9 +63,9 @@
 
 (defn compile-assets [files target]
   (doseq [file files]
-    (let [compiled  (compile-file file)
-          file-name (.getName file)]
-      (println "compling" file-name)
+    (let [file-name (.getName file)
+          _ (println "compiling" file-name)
+          compiled  (compile-file file)]
       (if (string? compiled)
         (do
           (println "compiled successfully")
@@ -78,7 +80,7 @@
     (if (some #{"watch"} opts)
       (do
         (compile-assets files target)
-        (watch-thread source (fn [_] (compile-assets files target))))
+        (watch-thread source (fn [e] (compile-assets files target))))
       (when (not @compiled?)
         (compile-assets files target)
         (reset! compiled? true)))))
