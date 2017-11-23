@@ -69,7 +69,9 @@
       (if (string? compiled)
         (do
           (println "compiled successfully")
-          (spit (str target File/separator (ext-sass->css file-name)) compiled))
+          (let [output-file-path (str target File/separator (ext-sass->css file-name))]
+            (io/make-parents output-file-path)
+            (spit output-file-path compiled)))
         (do
           (println "failed to compile:" file-name)
           (clojure.pprint/pprint compiled))))))
