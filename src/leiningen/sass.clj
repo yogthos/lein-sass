@@ -92,12 +92,20 @@
 (defn ext-sass->css [file-name]
   (str (subs file-name 0 (.lastIndexOf file-name ".")) ".css"))
 
-(defn relative-path [dir-path file-path] ;; TODO reimplement it
-  (let [prefix (->> (s/split dir-path #"/")
-                    (drop 1)
-                    (map (fn [_] ".."))
-                    (s/join "/"))]
-    (str prefix file-path)))
+(defn drop-common-prefix [dir-path file-path]
+  (loop [[f1 & r1 :as c1] (s/split file-path #"/")
+         [f2 & r2 :as c2] (s/split dir-path #"/")]
+    (cond
+      (not f2) [c1 c2]
+      (not f1) [c1 c2]
+      (= f1 f2) (recur r1 r2)
+      :default [c1 c2])))
+
+(defn relative-path [dir-path file-path]
+  (let [[c1 c2] (drop-common-prefix dir-path file-path)
+        prefix  (s/join "/" (repeat (count c2) ".."))
+        suffix  (s/join "/" c1)]
+    (str prefix "/" suffix)))
 
 (defn compile-assets [files target]
   (doseq [file files]
