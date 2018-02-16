@@ -112,10 +112,11 @@
 (defn compile-assets [files target]
   (doseq [file files]
     (let [file-name           (.getName file)
+          file-path           (.getPath file)
           _                   (println "compiling" file-name)
           output-file-name    (ext-sass->css file-name)
           output-file-path    (str target File/separator output-file-name)
-          relative-input-path (relative-path target (.getPath file))
+          relative-input-path (relative-path target file-path)
           _                   (compile-file file relative-input-path output-file-name)
           formatted           (.eval engine "output_formatted")
           map                 (.eval engine "JSON.stringify(output_map,null,2)")
@@ -125,8 +126,8 @@
           status              (.eval engine "output_status")]
       (if (pos? status)
         (do
-          (println (format "%s:%s:%s failed to compile:" file-name line column))
-          (clojure.pprint/pprint formatted))
+          (println (format "%s:%s:%s failed to compile:" file-path line column))
+          (println formatted))
         (do
           (println "compiled successfully")
           (let [map-file-path (str output-file-path ".map")]
