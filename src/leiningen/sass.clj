@@ -1,7 +1,8 @@
 (ns leiningen.sass
   (:require [clojure.set :refer [rename-keys]]
             [clojure.java.io :as io]
-            [clojure.pprint])
+            [clojure.pprint]
+            [clojure.string :as s])
   (:import
     java.io.File
     [java.nio.file FileSystems Paths StandardWatchEventKinds]
@@ -12,6 +13,7 @@
                   (.eval e "function setTimeout(f) {f();};")
                   (.eval e (io/reader (io/resource "sass.sync.js")))
                   (.eval e "var source = '';")
+                  (.eval e "var options = '';")
                   (.eval e "var output = '';")
                   (.eval e "var output_formatted = '';")
                   (.eval e "var output_map = '';")
@@ -20,13 +22,19 @@
                   (.eval e "var output_line = '';")
                   (.eval e "var output_status = '';")
                   (.eval e "var output_file = '';")
+                  (.eval e "var input_relative_path = '';")
                   (.eval e "function setSource(input) {source = input;};")
+                  (.eval e (str "function setOptions(input_path, output_name) {"
+                                "input_relative_path = input_path;"
+                                "options = {inputPath: input_path, outputPath: output_name};"
+                                "};"))
                   (.eval e (str "function setOutput(result) {"
                                 "output = result;"
                                 "output_formatted = result.formatted;"
                                 "output_map = result.map;"
                                 "delete output_map.sourcesContent;"
                                 "delete output_map.sourceRoot;"
+                                "output_map.sources[0] = input_relative_path;"
                                 "output_text = result.text;"
                                 "output_column = result.column;"
                                 "output_line = result.line;"
@@ -66,10 +74,11 @@
     (.start)
     (.join)))
 
-(defn compile-file [file]
+(defn compile-file [file relative-input-path output-file-name]
   (let [source (slurp file)]
     (.invokeFunction (cast Invocable engine) "setSource" (into-array [source]))
-    (.eval engine "Sass.compile(source, setOutput)")))
+    (.invokeFunction (cast Invocable engine) "setOptions" (into-array [relative-input-path output-file-name]))
+    (.eval engine "Sass.compile(source, options, setOutput)")))
 
 (defn find-assets [f ext]
   (when f
@@ -82,26 +91,34 @@
 (defn ext-sass->css [file-name]
   (str (subs file-name 0 (.lastIndexOf file-name ".")) ".css"))
 
+(defn relative-path [dir-path file-path] ;; TODO reimplement it
+  (let [prefix (->> (s/split dir-path #"/")
+                    (drop 1)
+                    (map (fn [_] ".."))
+                    (s/join "/"))]
+    (str prefix file-path)))
+
 (defn compile-assets [files target]
   (doseq [file files]
-    (let [file-name (.getName file)
-          _         (println "compiling" file-name)
-          _         (compile-file file)
-          output    (.eval engine "output")
-          formatted (.eval engine "output_formatted")
-          map       (.eval engine "JSON.stringify(output_map)")
-          text      (.eval engine "output_text")
-          column    (.eval engine "output_column")
-          line      (.eval engine "output_line")
-          status    (.eval engine "output_status")]
+    (let [file-name           (.getName file)
+          _                   (println "compiling" file-name)
+          output-file-name    (ext-sass->css file-name)
+          output-file-path    (str target File/separator output-file-name)
+          relative-input-path (relative-path target (.getPath file))
+          _                   (compile-file file relative-input-path output-file-name)
+          formatted           (.eval engine "output_formatted")
+          map                 (.eval engine "JSON.stringify(output_map)")
+          text                (.eval engine "output_text")
+          column              (.eval engine "output_column")
+          line                (.eval engine "output_line")
+          status              (.eval engine "output_status")]
       (if (pos? status)
         (do
           (println (format "%s:%s:%s failed to compile:" file-name line column))
           (clojure.pprint/pprint formatted))
         (do
           (println "compiled successfully")
-          (let [output-file-path (str target File/separator (ext-sass->css file-name))
-                map-file-path    (str output-file-path ".map")]
+          (let [map-file-path (str output-file-path ".map")]
             (io/make-parents output-file-path)
             (spit output-file-path text)
             (spit map-file-path map)))))))
