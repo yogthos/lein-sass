@@ -133,7 +133,8 @@
           (let [map-file-path (str output-file-path ".map")]
             (io/make-parents output-file-path)
             (spit output-file-path text)
-            (spit output-file-path (format "\n/*# sourceMappingURL=%s.map */\n" file-name) :append true)
+            (spit output-file-path (format "\n/*# sourceMappingURL=%s.map */\n" output-file-name)
+                  :append true)
             (spit map-file-path map)))))))
 
 (defn sass [{{:keys [source target]} :sass} & opts]
