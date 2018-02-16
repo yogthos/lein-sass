@@ -9,9 +9,30 @@
 
 (def compiled? (atom false))
 (defonce engine (let [e (.getEngineByName (ScriptEngineManager.) "nashorn")]
-                  (.eval e (io/reader (io/resource "sass.min.js")))
+                  (.eval e "function setTimeout(f) {f();};")
+                  (.eval e (io/reader (io/resource "sass.sync.js")))
                   (.eval e "var source = '';")
+                  (.eval e "var output = '';")
+                  (.eval e "var output_formatted = '';")
+                  (.eval e "var output_map = '';")
+                  (.eval e "var output_text = '';")
+                  (.eval e "var output_column = '';")
+                  (.eval e "var output_line = '';")
+                  (.eval e "var output_status = '';")
+                  (.eval e "var output_file = '';")
                   (.eval e "function setSource(input) {source = input;};")
+                  (.eval e (str "function setOutput(result) {"
+                                "output = result;"
+                                "output_formatted = result.formatted;"
+                                "output_map = result.map;"
+                                "delete output_map.sourcesContent;"
+                                "delete output_map.sourceRoot;"
+                                "output_text = result.text;"
+                                "output_column = result.column;"
+                                "output_line = result.line;"
+                                "output_status = result.status;"
+                                "output_file = result.file;"
+                                "};"))
                   e))
 
 (defn register-events! [dir watch-service]
@@ -48,7 +69,7 @@
 (defn compile-file [file]
   (let [source (slurp file)]
     (.invokeFunction (cast Invocable engine) "setSource" (into-array [source]))
-    (.eval engine "Sass.compile(source)")))
+    (.eval engine "Sass.compile(source, setOutput)")))
 
 (defn find-assets [f ext]
   (when f
@@ -64,17 +85,26 @@
 (defn compile-assets [files target]
   (doseq [file files]
     (let [file-name (.getName file)
-          _ (println "compiling" file-name)
-          compiled  (compile-file file)]
-      (if (string? compiled)
+          _         (println "compiling" file-name)
+          _         (compile-file file)
+          output    (.eval engine "output")
+          formatted (.eval engine "output_formatted")
+          map       (.eval engine "JSON.stringify(output_map)")
+          text      (.eval engine "output_text")
+          column    (.eval engine "output_column")
+          line      (.eval engine "output_line")
+          status    (.eval engine "output_status")]
+      (if (pos? status)
+        (do
+          (println (format "%s:%s:%s failed to compile:" file-name line column))
+          (clojure.pprint/pprint formatted))
         (do
           (println "compiled successfully")
-          (let [output-file-path (str target File/separator (ext-sass->css file-name))]
+          (let [output-file-path (str target File/separator (ext-sass->css file-name))
+                map-file-path    (str output-file-path ".map")]
             (io/make-parents output-file-path)
-            (spit output-file-path compiled)))
-        (do
-          (println "failed to compile:" file-name)
-          (clojure.pprint/pprint compiled))))))
+            (spit output-file-path text)
+            (spit map-file-path map)))))))
 
 (defn sass [{{:keys [source target]} :sass} & opts]
   (let [files (concat (find-assets (io/file source) ".sass")
