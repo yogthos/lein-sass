@@ -55,7 +55,8 @@
     (if (.isDirectory f)
       (->> f
            file-seq
-           (filter (fn [file] (-> file .getName (.endsWith ext)))))
+           (filter (fn [file] (-> file .getName (.endsWith ext))))
+           (filter (fn [file] (-> file .getName (.startsWith "_") not))))
       [f])))
 
 (defn ext-sass->css [file-name]
