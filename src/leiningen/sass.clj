@@ -23,8 +23,8 @@
                   (.eval e "var output_status = '';")
                   (.eval e "var output_file = '';")
                   (.eval e "var input_relative_path = '';")
-                  (.eval e "function setSource(input) {source = input;};")
-                  (.eval e (str "function setOptions(input_path, output_name) {"
+                  (.eval e (str "function setSourceAndOptions(input, input_path, output_name) {"
+                                "source = input;"
                                 "input_relative_path = input_path;"
                                 "options = {inputPath: input_path, outputPath: output_name};"
                                 "};"))
@@ -76,8 +76,9 @@
 
 (defn compile-file [file relative-input-path output-file-name]
   (let [source (slurp file)]
-    (.invokeFunction (cast Invocable engine) "setSource" (into-array [source]))
-    (.invokeFunction (cast Invocable engine) "setOptions" (into-array [relative-input-path output-file-name]))
+    (.invokeFunction (cast Invocable engine) "setSourceAndOptions" (into-array [source
+                                                                                relative-input-path
+                                                                                output-file-name]))
     (.eval engine "Sass.compile(source, options, setOutput)")))
 
 (defn find-assets [f ext]
