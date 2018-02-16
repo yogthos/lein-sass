@@ -107,7 +107,7 @@
           relative-input-path (relative-path target (.getPath file))
           _                   (compile-file file relative-input-path output-file-name)
           formatted           (.eval engine "output_formatted")
-          map                 (.eval engine "JSON.stringify(output_map)")
+          map                 (.eval engine "JSON.stringify(output_map,null,2)")
           text                (.eval engine "output_text")
           column              (.eval engine "output_column")
           line                (.eval engine "output_line")
