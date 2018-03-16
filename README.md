@@ -10,11 +10,9 @@ A minimum dependency Clojure library designed to compile SASS files using [Sass.
 
 ## Usage
 
-1. git clone this project to your computer
-2. run `lein install`
 3. add the following to your `project.clj`
     ```clojure
-    :plugins [[yogthos/lein-sass "0.1.1"]]
+    :plugins [[yogthos/lein-sass "VERSION"]]
     :sass {:source "my/sass/dir" :target "my/output/dir"}
     ```
 
