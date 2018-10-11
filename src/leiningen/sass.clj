@@ -43,6 +43,15 @@
                                 "output_status = result.status;"
                                 "output_file = result.file;"
                                 "};"))
+                  (.eval e (str "function simpleIncludes(arr, value) {"
+                                "output = false;"
+                                "arr.forEach(function(a, b, c) {"
+                                "  if (a === value) {"
+                                "    output = true;"
+                                "  }"
+                                "});"
+                                "return output;"
+                                "};"))
                   e))
 
 (defn register-events! [dir watch-service]
@@ -88,8 +97,7 @@
     (if (.isDirectory f)
       (->> f
            file-seq
-           (filter (fn [file] (-> file .getName (.endsWith ext))))
-           (filter (fn [file] (-> file .getName (.startsWith "_") not))))
+           (filter (fn [file] (-> file .getName (.endsWith ext)))))
       [f])))
 
 (defn ext-sass->css [file-name]
@@ -138,13 +146,78 @@
                   :append true)
             (spit map-file-path map)))))))
 
+(defn name->bare-name
+  "Given a file starting with an underscore and having a file extension, returns the name only (e.g. '_foo.scss' -> 'foo')"
+  [file]
+  (let [[_ _ name _] (re-find #"(_)(.*)(\.)" file)]
+    name))
+
+(defn escape-chars
+  [text]
+  (loop [[c & txt] text
+         result ""]
+    (if c
+      (recur txt
+             (str result (case c
+                           \' "\\'"
+                           \newline ""
+                           c)))
+      result)))
+
+(defn register-files-for-import
+  "sass.js emulates a file system in memory. So files that are imported (files starting with an underscore)
+   needs to be registered with the in memory file system."
+  [files]
+  (let [partial-files (for [file files
+                            :let [path (.getPath file)
+                                  name (.getName file)]
+                            :when (= (first name) \_)]
+                        path)
+        mappings (str "{"
+                      (apply str
+                             (interpose ", " (map (fn [path]
+                                                    (str "'" path "': '" (-> path slurp escape-chars) "'" ))
+                                                  partial-files)))
+                      "}")]
+    (.eval engine (str "Sass.writeFile("
+                       mappings ", "
+                       "function callback(result) {});"))))
+
+(defn importer-callback
+  "Hook into the compilation process to process Sass's @import calls"
+  [files]
+  (let [partial-files-json (for [file files
+                                 :let [path (.getPath file)
+                                       path-without-name (->> path (re-find #"(.*)/[^/]*$") last)
+                                       name (.getName file)
+                                       bare-name (name->bare-name name)]
+                                 :when (= (first name) \_)]
+                             (str "'{\"pathWithoutName\": \"" path-without-name "\", \"path\": \"" path "\", \"bareName\": \"" bare-name "\"}'"))]
+    (.eval engine (str "Sass.importer(function(request, done) { "
+                       "if (request.path) { done(); } "
+                       "else { "
+                       (str "[" (apply str (interpose ", " partial-files-json)) "]") ".forEach(function(fileJson, index, arr) { "
+                       "fileJson = JSON.parse(fileJson);"
+                       "if (simpleIncludes(Sass.getPathVariations(fileJson.pathWithoutName + '/' + fileJson.bareName), request.resolved.substring(1))) {"
+                       "done({"
+                       "path: fileJson.path"
+                       "})}});}});"))))
+
+(defn handle-imports
+  [files]
+  (register-files-for-import files)
+  (importer-callback files))
+
 (defn sass [{{:keys [source target]} :sass} & opts]
   (let [files (concat (find-assets (io/file source) ".sass")
-                      (find-assets (io/file source) ".scss"))]
+                      (find-assets (io/file source) ".scss"))
+        files-without-partials (filter (fn [file] (-> file .getName (.startsWith "_") not))
+                                       files)]
+    (handle-imports files)
     (if (some #{"watch"} opts)
       (do
-        (compile-assets files target)
+        (compile-assets files-without-partials target)
         (watch-thread source (fn [e] (compile-assets files target))))
       (when (not @compiled?)
-        (compile-assets files target)
+        (compile-assets files-without-partials target)
         (reset! compiled? true)))))
