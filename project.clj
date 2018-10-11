@@ -1,4 +1,4 @@
-(defproject yogthos/lein-sass "0.1.4"
+(defproject yogthos/lein-sass "0.1.5"
   :description "SASS asset compiler using Sass.js and Nashorn"
   :url "https://github.com/yogthos/lein-sass"
   :license {:name "Eclipse Public License"
