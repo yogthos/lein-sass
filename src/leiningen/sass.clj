@@ -217,7 +217,9 @@
     (if (some #{"watch"} opts)
       (do
         (compile-assets files-without-partials target)
-        (watch-thread source (fn [e] (compile-assets files target))))
+        (watch-thread source (fn [e]
+                               (register-files-for-import files)
+                               (compile-assets files-without-partials target))))
       (when (not @compiled?)
         (compile-assets files-without-partials target)
         (reset! compiled? true)))))
