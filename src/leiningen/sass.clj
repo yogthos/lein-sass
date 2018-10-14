@@ -118,13 +118,16 @@
         suffix  (s/join "/" c1)]
     (str prefix "/" suffix)))
 
-(defn compile-assets [files target]
+(defn compile-assets [files target source]
   (doseq [file files]
     (let [file-name           (.getName file)
           file-path           (.getPath file)
+          file-source-relative-path (-> (re-pattern (str source "(.*)" file-name))
+                                        (re-find file-path)
+                                        second)
           _                   (println "compiling" file-name)
           output-file-name    (ext-sass->css file-name)
-          output-file-path    (str target File/separator output-file-name)
+          output-file-path    (str target file-source-relative-path output-file-name)
           relative-input-path (relative-path target file-path)
           _                   (compile-file file relative-input-path output-file-name)
           formatted           (.eval engine "output_formatted")
@@ -216,10 +219,10 @@
     (handle-imports files)
     (if (some #{"watch"} opts)
       (do
-        (compile-assets files-without-partials target)
+        (compile-assets files-without-partials target source)
         (watch-thread source (fn [e]
                                (register-files-for-import files)
-                               (compile-assets files-without-partials target))))
+                               (compile-assets files-without-partials target source))))
       (when (not @compiled?)
-        (compile-assets files-without-partials target)
+        (compile-assets files-without-partials target source)
         (reset! compiled? true)))))
