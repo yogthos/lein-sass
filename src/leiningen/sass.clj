@@ -212,17 +212,30 @@
   (importer-callback files))
 
 (defn sass [{{:keys [source target]} :sass} & opts]
-  (let [files (concat (find-assets (io/file source) ".sass")
-                      (find-assets (io/file source) ".scss"))
-        files-without-partials (filter (fn [file] (-> file .getName (.startsWith "_") not))
-                                       files)]
+  (let [find-files #(concat (find-assets (io/file source) ".sass")
+                            (find-assets (io/file source) ".scss"))
+        find-files-without-partials #(filter (fn [file] (-> file .getName (.startsWith "_") not))
+                                             %)
+        files (find-files)
+        files-without-partials (find-files-without-partials files)
+        watch-files (atom {:files files
+                           :files-without-partials files-without-partials})]
     (handle-imports files)
     (if (some #{"watch"} opts)
       (do
         (compile-assets files-without-partials target source)
         (watch-thread source (fn [e]
-                               (register-files-for-import files)
-                               (compile-assets files-without-partials target source))))
+                               (try
+                                 (let [{:keys [files files-without-partials]} @watch-files]
+                                   (register-files-for-import files)
+                                   (compile-assets files-without-partials target source))
+                                 ;; If user changes a file's name, this exception is thrown
+                                 (catch java.io.FileNotFoundException ex
+                                   (println (.getMessage ex))
+                                   (let [files (find-files)
+                                         files-without-partials (find-files-without-partials files)]
+                                     (swap! watch-files assoc :files files
+                                            :files-without-partials files-without-partials)))))))
       (when (not @compiled?)
         (compile-assets files-without-partials target source)
         (reset! compiled? true)))))
