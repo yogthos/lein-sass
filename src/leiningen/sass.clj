@@ -93,12 +93,19 @@
     (.eval engine "Sass.compile(source, options, setOutput)")))
 
 (defn find-assets [f ext]
-  (when f
-    (if (.isDirectory f)
-      (->> f
-           file-seq
-           (filter (fn [file] (-> file .getName (.endsWith ext)))))
-      [f])))
+  (cond
+    (nil? f)
+    (throw (Exception. "Received nil instead of file"))
+    (not (.exists f))
+    (throw (Exception. (str "Source does not exist: " (.getName f))))
+    (.isDirectory f)
+    (->> f
+         file-seq
+         (filter (fn [file] (-> file .getName (.endsWith ext)))))
+    (.isFile f)
+    [f]
+    :else
+    (throw (Exception. (str "Source is neither file nor directory: " (.getName f))))))
 
 (defn ext-sass->css [file-name]
   (str (subs file-name 0 (.lastIndexOf file-name ".")) ".css"))
@@ -179,7 +186,7 @@
         mappings (str "{"
                       (apply str
                              (interpose ", " (map (fn [path]
-                                                    (str "'" path "': '" (-> path slurp escape-chars) "'" ))
+                                                    (str "'" path "': '" (-> path slurp escape-chars) "'"))
                                                   partial-files)))
                       "}")]
     (.eval engine (str "Sass.writeFile("
@@ -212,14 +219,17 @@
   (importer-callback files))
 
 (defn sass [{{:keys [source target]} :sass} & opts]
-  (let [find-files #(concat (find-assets (io/file source) ".sass")
-                            (find-assets (io/file source) ".scss"))
+  (let [source-directory (io/file source)
+        find-files #(concat (find-assets source-directory ".sass")
+                            (find-assets source-directory ".scss"))
         find-files-without-partials #(filter (fn [file] (-> file .getName (.startsWith "_") not))
                                              %)
         files (find-files)
         files-without-partials (find-files-without-partials files)
         watch-files (atom {:files files
                            :files-without-partials files-without-partials})]
+    (when (empty? files)
+      (throw (Exception. (str "Source contains no usable files: " source))))
     (handle-imports files)
     (if (some #{"watch"} opts)
       (do
