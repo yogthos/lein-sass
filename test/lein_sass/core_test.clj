@@ -3,4 +3,4 @@
             [leiningen.sass :refer :all]))
 
 (deftest test-compiler
-  (is (sass "test/test.sass")))
+  (is (sass {:sass {:source "test" :target "target/test"}})))
