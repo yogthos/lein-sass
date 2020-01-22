@@ -1,10 +1,9 @@
 (ns leiningen.sass
   (:require
-    [clojure.set :refer [rename-keys]]
     [clojure.java.io :as io]
     [clojure.pprint]
     [clojure.string :as s]
-    [leiningen.core.main :refer [debug info warn]])
+    [leiningen.core.main :refer [info warn]])
   (:import
     [java.io FileNotFoundException]
     [java.nio.file FileSystems Paths StandardWatchEventKinds]
